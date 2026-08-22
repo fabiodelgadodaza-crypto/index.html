@@ -1,250 +1,428 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Tiempos de Natacion</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body { font-family: Arial, sans-serif; background:#0a1e3f; color:#fff; margin:0; padding:16px; }
-  h1 { font-size:1.3em; text-align:center; color:#c9a24a; }
-  .card { background:#132c54; border-radius:10px; padding:16px; margin-bottom:16px; }
-  label { display:block; margin-top:10px; font-size:0.9em; color:#cfd8e8; }
-  input, select { width:100%; padding:10px; margin-top:4px; border-radius:6px; border:none; font-size:1em; box-sizing:border-box; }
-  button { background:#c9a24a; color:#0a1e3f; border:none; padding:12px 18px; border-radius:8px; font-weight:bold; margin-top:12px; width:100%; font-size:1em; }
-  button.mic { background:#3466d6; color:#fff; }
-  table { width:100%; border-collapse:collapse; margin-top:12px; font-size:0.85em; }
-  th, td { padding:6px; text-align:center; border-bottom:1px solid #2a4570; }
-  .z0 { background:#7a0d0d; } .z1 { background:#b23c17; } .z2 { background:#c97a1a; }
-  .z3 { background:#c9b41a; color:#111; } .z4 { background:#4c9a2a; } .z5 { background:#1a7a5e; }
-  .z6 { background:#1a5fc9; }
-  #status { text-align:center; color:#8fd3ff; min-height:20px; }
-  canvas { background:#0e2246; border-radius:8px; }
+body{margin:0;padding:16px;background:#F7FAFC;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+:root{--font-sans:-apple-system,Segoe UI,Roboto,Arial,sans-serif;--font-mono:'Courier New',monospace;}
 </style>
 </head>
 <body>
+<div style="--pool-deep:#0B3556; --pool-teal:#1B9AAA; --pool-foam:#F7FAFC; font-family:var(--font-sans); position:relative;">
 
-<h1>Control de Tiempos de Natacion</h1>
+<style>
+.lane-bg{position:absolute;inset:0;pointer-events:none;opacity:.06;background:repeating-linear-gradient(180deg,var(--pool-deep) 0 3px,transparent 3px 42px);z-index:0;}
+.board{position:relative;z-index:1;background:var(--pool-deep);border-radius:12px;padding:20px 20px 16px;color:#fff;}
+.scoreboard{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:.5px;}
+.zone-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 8px;border-radius:6px;font-weight:500;}
+.dist-card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:10px;padding:10px 12px;}
+.mic-btn{width:34px;height:34px;border-radius:50%;border:0.5px solid var(--border-strong);background:var(--surface-1);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.mic-btn.listening{background:var(--fill-danger);color:var(--on-danger);border-color:transparent;}
+.mic-btn i{font-size:16px;}
+table.results{width:100%;min-width:640px;border-collapse:collapse;font-size:12px;}
+table.results th{font-weight:500;color:var(--text-secondary);text-align:center;padding:6px 2px;border-bottom:0.5px solid var(--border);}
+table.results td{text-align:center;padding:6px 2px;border-bottom:0.5px solid var(--border);}
+</style>
 
-<div class="card">
-  <label>Nombre del nadador</label>
-  <input id="nombre" type="text" placeholder="Dicta o escribe el nombre">
+<div class="lane-bg"></div>
 
-  <label>Prueba</label>
-  <select id="prueba">
-    <option value="1500">1500 metros</option>
-    <option value="800">800 metros</option>
-    <option value="400">400 metros</option>
-    <option value="200">200 metros</option>
-    <option value="100">100 metros</option>
-    <option value="50">50 metros (superficie / espalda / apnea)</option>
-  </select>
+<div style="position:relative;z-index:1;">
 
-  <label>Record Nacional (segundos)</label>
-  <input id="recNac" type="number" step="0.01" placeholder="Ej: 245.30">
-  <label>Record Mundial (segundos)</label>
-  <input id="recMun" type="number" step="0.01" placeholder="Ej: 230.10">
-  <label>Record Personal (segundos)</label>
-  <input id="recPer" type="number" step="0.01" placeholder="Ej: 250.00">
+<div class="board" id="board">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
+      <span style="font-size:20px;" aria-hidden="true">⏱️</span>
+      <input type="text" id="swimmerName" placeholder="Nombre del nadador" autocomplete="off" style="background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.25);color:#fff;font-size:16px;font-weight:500;padding:8px 10px;border-radius:8px;width:100%;" />
+      <button class="mic-btn" id="micName" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.25);color:#fff;font-size:16px;" aria-label="Dictar nombre">🎤</button>
+    </div>
+  </div>
 
-  <button class="mic" onclick="dictarNombre()">Dictar nombre por voz</button>
-  <button class="mic" onclick="dictarTiempos()">Dictar los 10 tiempos por voz</button>
-  <div id="status"></div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;">
+    <div>
+      <label style="font-size:11px;color:rgba(255,255,255,.6);">Récord nacional</label>
+      <input id="recNac" placeholder="00:00.00" class="scoreboard" style="width:100%;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.25);color:#fff;padding:6px 8px;border-radius:6px;font-size:13px;" />
+    </div>
+    <div>
+      <label style="font-size:11px;color:rgba(255,255,255,.6);">Récord mundial</label>
+      <input id="recMun" placeholder="00:00.00" class="scoreboard" style="width:100%;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.25);color:#fff;padding:6px 8px;border-radius:6px;font-size:13px;" />
+    </div>
+    <div>
+      <label style="font-size:11px;color:rgba(255,255,255,.6);">Marca personal</label>
+      <input id="recPer" placeholder="00:00.00" class="scoreboard" style="width:100%;background:rgba(255,255,255,.08);border:0.5px solid rgba(255,255,255,.25);color:#fff;padding:6px 8px;border-radius:6px;font-size:13px;" />
+    </div>
+  </div>
 </div>
 
-<div class="card">
-  <h3 style="color:#c9a24a; margin-top:0;">Tiempos por carrera (segundos)</h3>
-  <div id="carreras"></div>
-  <button onclick="calcular()">Calcular resultados</button>
+<p style="font-size:13px;color:var(--text-secondary);margin:14px 0 8px;">Tiempos por distancia (dicta o escribe cada uno, formato minutos:segundos.centesimas, ej 0:49.43)</p>
+
+<div id="distGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px;"></div>
+
+<div style="display:flex;gap:8px;margin-bottom:20px;">
+  <button id="calcBtn" style="flex:1;background:var(--pool-teal);color:#fff;border:none;border-radius:8px;padding:10px;font-weight:500;font-size:14px;cursor:pointer;">Calcular zonas y graficar</button>
+  <button id="resetBtn" style="background:transparent;">Limpiar</button>
 </div>
 
-<div class="card" id="resultados" style="display:none;">
-  <h3 style="color:#c9a24a; margin-top:0;">Resultados</h3>
-  <div id="tablaResultados"></div>
+<div id="errorMsg" style="display:none;font-size:13px;color:var(--text-danger);margin-bottom:12px;"></div>
+
+<div id="resultsWrap" style="display:none;">
+  <div style="overflow-x:auto;margin-bottom:8px;">
+    <table class="results" id="resultsTable"></table>
+  </div>
+  <p style="font-size:13px;color:var(--text-secondary);margin:16px 0 6px;">Proyección de tiempo pro por prueba, a partir del promedio de las 10 carreras</p>
+  <div style="overflow-x:auto;margin-bottom:8px;">
+    <table class="results" id="projTable"></table>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 20px;font-size:12px;color:var(--text-secondary);">
+    <span class="zone-chip" style="background:#92D050;color:#173404;">Z0 40-59%</span>
+    <span class="zone-chip" style="background:#ADD8E6;color:#042C53;">Z1 60-69%</span>
+    <span class="zone-chip" style="background:#00B050;color:#fff;">Z2 70-79%</span>
+    <span class="zone-chip" style="background:#FFFF00;color:#412402;">Z3 80-89%</span>
+    <span class="zone-chip" style="background:#0000FF;color:#fff;">Z4 90-94%</span>
+    <span class="zone-chip" style="background:#FF0000;color:#fff;">Z5 95-100%</span>
+    <span class="zone-chip" style="background:#FF33CC;color:#4B1528;">Z6 &gt;100%</span>
+  </div>
+
+  <div style="margin:20px 0; position:relative; height:280px;">
+    <canvas id="progressChart" role="img" aria-label="Gráfica de progreso de tiempos por distancia, de 1500 a 50 metros"></canvas>
+  </div>
 </div>
 
-<div class="card">
-  <h3 style="color:#c9a24a; margin-top:0;">Grafica de progreso</h3>
-  <canvas id="grafico" width="320" height="200"></canvas>
+</div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const cont = document.getElementById('carreras');
-for (let i=1;i<=10;i++){
-  const lbl = document.createElement('label');
-  lbl.textContent = 'Race ' + i;
-  const row = document.createElement('div');
-  row.style.display = 'flex';
-  row.style.gap = '8px';
-  row.style.alignItems = 'center';
-  const inp = document.createElement('input');
-  inp.type = 'number';
-  inp.step = '0.01';
-  inp.id = 'race'+i;
-  inp.style.flex = '1';
-  const micBtn = document.createElement('button');
-  micBtn.type = 'button';
-  micBtn.className = 'mic';
-  micBtn.style.width = 'auto';
-  micBtn.style.marginTop = '4px';
-  micBtn.style.padding = '10px 14px';
-  micBtn.textContent = String.fromCodePoint(0x1F3A4);
-  micBtn.onclick = function(){ dictarUnaCarrera(i); };
-  row.appendChild(inp);
-  row.appendChild(micBtn);
-  cont.appendChild(lbl);
-  cont.appendChild(row);
-}
+(function(){
 
-function dictarUnaCarrera(numero){
-  const rec = getRecognition();
-  if (!rec) return;
-  document.getElementById('status').textContent = 'Dicta el tiempo de la carrera ' + numero + '...';
-  rec.start();
-  rec.onresult = (e)=>{
-    const texto = e.results[0][0].transcript.replace(',', '.').replace(/[^0-9.]/g,'');
-    document.getElementById('race'+numero).value = texto;
-    document.getElementById('status').textContent = 'Carrera ' + numero + ' capturada: ' + texto;
-  };
-  rec.onerror = (e)=>{
-    document.getElementById('status').textContent = 'Error de microfono: ' + e.error + '. Debes abrir esta pagina desde un link https, no como archivo local.';
-  };
-}
+var distances = [
+  {id:'r1', label:'Race 1'},
+  {id:'r2', label:'Race 2'},
+  {id:'r3', label:'Race 3'},
+  {id:'r4', label:'Race 4'},
+  {id:'r5', label:'Race 5'},
+  {id:'r6', label:'Race 6'},
+  {id:'r7', label:'Race 7'},
+  {id:'r8', label:'Race 8'},
+  {id:'r9', label:'Race 9'},
+  {id:'r10', label:'Race 10'}
+];
 
-function getZonaColor(pct){
-  if (pct >= 100) return 'z6';
-  if (pct >= 97) return 'z5';
-  if (pct >= 94) return 'z4';
-  if (pct >= 90) return 'z3';
-  if (pct >= 85) return 'z2';
-  if (pct >= 80) return 'z1';
-  return 'z0';
-}
+var projections = [
+  {label:'1500SF', factor:15, adj:6},
+  {label:'800SF', factor:8, adj:6},
+  {label:'400SF', factor:4, adj:0},
+  {label:'200SF', factor:2, adj:-6},
+  {label:'100SF', factor:1, adj:-6},
+  {label:'50SF', factor:0.5, adj:-15},
+  {label:'50BI', factor:0.5, adj:-15},
+  {label:'100BI', factor:1, adj:-6},
+  {label:'200BI', factor:2, adj:-6},
+  {label:'400BI', factor:4, adj:0},
+  {label:'50AP', factor:0.5, adj:-15},
+  {label:'100INM', factor:1, adj:-6},
+  {label:'200INM', factor:2, adj:-6},
+  {label:'400INM', factor:4, adj:0}
+];
 
-function calcular(){
-  const prueba = document.getElementById('prueba').value;
-  const tiempos = [];
-  for (let i=1;i<=10;i++){
-    const v = parseFloat(document.getElementById('race'+i).value);
-    if (!isNaN(v)) tiempos.push(v);
+var grid = document.getElementById('distGrid');
+distances.forEach(function(d){
+  var card = document.createElement('div');
+  card.className = 'dist-card';
+  card.innerHTML =
+    '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">'+d.label+'</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;">'+
+      '<input class="scoreboard timeInput" data-id="'+d.id+'" placeholder="0:00.00" style="width:100%;padding:6px 6px;font-size:13px;" />'+
+      '<button class="mic-btn micTime" data-id="'+d.id+'" aria-label="Dictar tiempo '+d.label+'" style="font-size:16px;">🎤</button>'+
+    '</div>';
+  grid.appendChild(card);
+});
+
+function parseTimeToSeconds(str){
+  if(!str) return null;
+  var cleaned = str.trim().replace(/,/g, '.').replace(/\s+/g, '');
+  var m = cleaned.match(/^(\d{1,2}):(\d{1,2})[.:](\d{1,2})$/);
+  if(m){
+    return parseInt(m[1],10)*60 + parseInt(m[2],10) + parseInt(m[3].padEnd(2,'0'),10)/100;
   }
-  if (tiempos.length === 0){
-    document.getElementById('status').textContent = 'Ingresa al menos un tiempo de carrera.';
+  m = cleaned.match(/^(\d{1,2})[.:](\d{1,2})$/);
+  if(m){
+    return parseInt(m[1],10) + parseInt(m[2].padEnd(2,'0'),10)/100;
+  }
+  var num = parseFloat(cleaned);
+  if(!isNaN(num) && /^[\d.]+$/.test(cleaned)) return num;
+  var nums = cleaned.match(/\d+/g);
+  if(nums){
+    if(nums.length>=3){
+      return parseInt(nums[0],10)*60 + parseInt(nums[1],10) + parseInt(nums[2].padEnd(2,'0'),10)/100;
+    } else if(nums.length===2){
+      return parseInt(nums[0],10) + parseInt(nums[1].padEnd(2,'0'),10)/100;
+    }
+  }
+  return null;
+}
+
+function secondsToStr(s){
+  if(s===null || isNaN(s)) return '-';
+  var neg = s<0; s=Math.abs(s);
+  var m = Math.floor(s/60);
+  var sec = s-m*60;
+  return (neg?'-':'')+m+':'+sec.toFixed(2).padStart(5,'0');
+}
+
+function zoneFor(pct){
+  if(pct<0.6) return {z:'Z0', bg:'#92D050', fg:'#173404'};
+  if(pct<0.7) return {z:'Z1', bg:'#ADD8E6', fg:'#042C53'};
+  if(pct<0.8) return {z:'Z2', bg:'#00B050', fg:'#fff'};
+  if(pct<0.9) return {z:'Z3', bg:'#FFFF00', fg:'#412402'};
+  if(pct<0.95) return {z:'Z4', bg:'#0000FF', fg:'#fff'};
+  if(pct<=1.00) return {z:'Z5', bg:'#FF0000', fg:'#fff'};
+  return {z:'Z6', bg:'#FF33CC', fg:'#4B1528'};
+}
+
+var recognition = null;
+var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(SpeechRec){
+  recognition = new SpeechRec();
+  recognition.lang = 'es-CO';
+  recognition.interimResults = false;
+}
+
+function attachMic(btn, targetInput, isName){
+  btn.addEventListener('click', function(){
+    if(!recognition){
+      showError('El reconocimiento de voz no está disponible en este navegador.');
+      return;
+    }
+    btn.classList.add('listening');
+    recognition.onresult = function(e){
+      var text = e.results[0][0].transcript;
+      if(isName){
+        targetInput.value = text;
+      } else {
+        var parsed = parseSpokenTime(text);
+        targetInput.value = parsed || text;
+      }
+      btn.classList.remove('listening');
+    };
+    recognition.onerror = function(){ btn.classList.remove('listening'); };
+    recognition.onend = function(){ btn.classList.remove('listening'); };
+    try{ recognition.start(); }catch(err){ btn.classList.remove('listening'); }
+  });
+}
+
+function parseSpokenTime(text){
+  text = text.toLowerCase();
+  var nums = text.match(/\d+/g);
+  if(!nums) return null;
+  if(nums.length>=3){
+    return nums[0]+':'+nums[1]+'.'+nums[2];
+  } else if(nums.length===2){
+    return '0:'+nums[0]+'.'+nums[1];
+  }
+  return null;
+}
+
+attachMic(document.getElementById('micName'), document.getElementById('swimmerName'), true);
+
+document.querySelectorAll('.micTime').forEach(function(btn){
+  var id = btn.getAttribute('data-id');
+  var input = document.querySelector('.timeInput[data-id="'+id+'"]');
+  attachMic(btn, input, false);
+});
+
+function showError(msg){
+  var el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearError(){
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+var chartInstance = null;
+
+document.getElementById('calcBtn').addEventListener('click', function(){
+  clearError();
+  var recNac = parseTimeToSeconds(document.getElementById('recNac').value);
+  if(recNac===null){
+    showError('Ingresa un récord nacional válido, ej 0:49.43, antes de calcular.');
     return;
   }
-  const promedio = tiempos.reduce((a,b)=>a+b,0) / tiempos.length;
-
-  let tiempoPro;
-  if (prueba === '1500' || prueba === '800'){
-    tiempoPro = promedio + 6;
-  } else if (prueba === '400'){
-    tiempoPro = promedio;
-  } else if (prueba === '200' || prueba === '100'){
-    tiempoPro = promedio - 6;
-  } else if (prueba === '50'){
-    tiempoPro = (promedio - 15) / 2;
-  }
-
-  const recNac = parseFloat(document.getElementById('recNac').value) || null;
-  const recMun = parseFloat(document.getElementById('recMun').value) || null;
-  const recPer = parseFloat(document.getElementById('recPer').value) || null;
-
-  function comparar(nombreRec, record){
-    if (!record) return null;
-    const pct = (record / tiempoPro) * 100;
-    return {nombre: nombreRec, record, pct: pct.toFixed(2), zona: getZonaColor(pct)};
-  }
-
-  const comparaciones = [
-    comparar('Record Nacional', recNac),
-    comparar('Record Mundial', recMun),
-    comparar('Record Personal', recPer)
-  ].filter(c => c !== null);
-
-  let html = '<table><tr><th>Referencia</th><th>Record (s)</th><th>Tiempo Pro (s)</th><th>Porcentaje</th></tr>';
-  comparaciones.forEach(c=>{
-    html += `<tr class="${c.zona}"><td>${c.nombre}</td><td>${c.record.toFixed(2)}</td><td>${tiempoPro.toFixed(2)}</td><td>${c.pct}%</td></tr>`;
+  var results = [];
+  var anyFilled = false;
+  var sum = 0, count = 0;
+  distances.forEach(function(d){
+    var input = document.querySelector('.timeInput[data-id="'+d.id+'"]');
+    var t = parseTimeToSeconds(input.value);
+    if(t!==null){ anyFilled = true; sum += t; count++; }
+    results.push({label:d.label, t:t});
   });
-  html += '</table>';
-  html += `<p style="text-align:center; margin-top:10px;">Promedio de las 10 carreras: <b>${promedio.toFixed(2)}</b> seg. Tiempo Pro proyectado: <b>${tiempoPro.toFixed(2)}</b> seg.</p>`;
-
-  document.getElementById('tablaResultados').innerHTML = html;
-  document.getElementById('resultados').style.display = 'block';
-
-  dibujarGrafico(tiempos);
-}
-
-function dibujarGrafico(tiempos){
-  const canvas = document.getElementById('grafico');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const max = Math.max(...tiempos);
-  const min = Math.min(...tiempos);
-  const rango = (max - min) || 1;
-  ctx.strokeStyle = '#c9a24a';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  tiempos.forEach((t,i)=>{
-    const x = 20 + i * ((canvas.width-40) / (tiempos.length-1||1));
-    const y = canvas.height - 20 - ((t - min) / rango) * (canvas.height - 40);
-    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    ctx.fillStyle = '#8fd3ff';
-    ctx.fillRect(x-2,y-2,4,4);
-  });
-  ctx.stroke();
-}
-
-function getRecognition(){
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition){
-    document.getElementById('status').textContent = 'Este navegador no soporta dictado por voz. Usa Chrome en Android.';
-    return null;
-  }
-  const rec = new SpeechRecognition();
-  rec.lang = 'es-ES';
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  return rec;
-}
-
-function dictarNombre(){
-  const rec = getRecognition();
-  if (!rec) return;
-  document.getElementById('status').textContent = 'Escuchando el nombre...';
-  rec.start();
-  rec.onresult = (e)=>{
-    document.getElementById('nombre').value = e.results[0][0].transcript;
-    document.getElementById('status').textContent = 'Nombre capturado.';
-  };
-  rec.onerror = (e)=>{
-    document.getElementById('status').textContent = 'Error de microfono: ' + e.error + '. Debes abrir esta pagina desde un link https, no como archivo local.';
-  };
-}
-
-let carreraActual = 1;
-function dictarTiempos(){
-  carreraActual = 1;
-  dictarSiguienteCarrera();
-}
-function dictarSiguienteCarrera(){
-  if (carreraActual > 10){
-    document.getElementById('status').textContent = 'Las 10 carreras fueron dictadas.';
+  if(!anyFilled){
+    showError('Ingresa al menos un tiempo de carrera antes de calcular.');
     return;
   }
-  const rec = getRecognition();
-  if (!rec) return;
-  document.getElementById('status').textContent = 'Dicta el tiempo de la carrera ' + carreraActual + '...';
-  rec.start();
-  rec.onresult = (e)=>{
-    const texto = e.results[0][0].transcript.replace(',', '.').replace(/[^0-9.]/g,'');
-    document.getElementById('race'+carreraActual).value = texto;
-    carreraActual++;
-    setTimeout(dictarSiguienteCarrera, 600);
-  };
-  rec.onerror = (e)=>{
-    document.getElementById('status').textContent = 'Error de microfono: ' + e.error + '. Debes abrir esta pagina desde un link https, no como archivo local.';
-  };
+
+  var recMun0 = parseTimeToSeconds(document.getElementById('recMun').value);
+  var recPer0 = parseTimeToSeconds(document.getElementById('recPer').value);
+
+  function pctZoneCell0(rec, t){
+    if(rec===null) return '<td>-</td><td>-</td>';
+    var pct = rec / t;
+    var zone = zoneFor(pct);
+    return '<td>'+(pct*100).toFixed(1)+'%</td><td><span class="zone-chip" style="background:'+zone.bg+';color:'+zone.fg+';">'+zone.z+'</span></td>';
+  }
+
+  var table = document.getElementById('resultsTable');
+  var head = '<tr><th>Carrera</th><th>Tiempo</th>'+
+    '<th>% nacional</th><th>Zona nac.</th>'+
+    '<th>% mundial</th><th>Zona mun.</th>'+
+    '<th>% personal</th><th>Zona per.</th></tr>';
+  var body = '';
+  results.forEach(function(r){
+    if(r.t===null){
+      body += '<tr><td>'+r.label+'</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>';
+      return;
+    }
+    body += '<tr><td>'+r.label+'</td><td>'+secondsToStr(r.t)+'</td>'+
+      pctZoneCell0(recNac, r.t)+
+      pctZoneCell0(recMun0, r.t)+
+      pctZoneCell0(recPer0, r.t)+
+      '</tr>';
+  });
+
+  var avg = count>0 ? sum/count : null;
+  if(avg!==null){
+    body += '<tr style="font-weight:500;"><td>Promedio</td><td>'+secondsToStr(avg)+'</td>'+
+      pctZoneCell0(recNac, avg)+
+      pctZoneCell0(recMun0, avg)+
+      pctZoneCell0(recPer0, avg)+
+      '</tr>';
+  }
+
+  table.innerHTML = head + body;
+  document.getElementById('resultsWrap').style.display = 'block';
+
+  var labels = results.map(function(r){return r.label;});
+  var data = results.map(function(r){return r.t;});
+
+  var recMun = parseTimeToSeconds(document.getElementById('recMun').value);
+  var recPer = parseTimeToSeconds(document.getElementById('recPer').value);
+
+  function pctZoneCell(rec, t){
+    if(rec===null) return '<td>-</td><td>-</td>';
+    var pct = rec / t;
+    var zone = zoneFor(pct);
+    return '<td>'+(pct*100).toFixed(1)+'%</td><td><span class="zone-chip" style="background:'+zone.bg+';color:'+zone.fg+';">'+zone.z+'</span></td>';
+  }
+
+  var projTable = document.getElementById('projTable');
+  if(avg!==null && projTable){
+    var pHead = '<tr><th>Prueba</th><th>Tiempo pro</th>'+
+      '<th>% nacional</th><th>Zona nac.</th>'+
+      '<th>% mundial</th><th>Zona mun.</th>'+
+      '<th>% personal</th><th>Zona per.</th></tr>';
+    var pBody = '';
+    projections.forEach(function(p){
+      var projTime = (avg + p.adj) * p.factor;
+      pBody += '<tr><td>'+p.label+'</td><td>'+secondsToStr(projTime)+'</td>'+
+        pctZoneCell(recNac, projTime)+
+        pctZoneCell(recMun, projTime)+
+        pctZoneCell(recPer, projTime)+
+        '</tr>';
+    });
+    projTable.innerHTML = pHead + pBody;
+
+    var projLabels = projections.map(function(p){return p.label;});
+    var projData = projections.map(function(p){
+      return (avg + p.adj) * p.factor;
+    });
+    labels = projLabels;
+    data = projData;
+  }
+
+  var ctx = document.getElementById('progressChart');
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Tiempo real',
+        data: data,
+        borderColor: '#1B9AAA',
+        backgroundColor: 'rgba(27,154,170,0.1)',
+        borderWidth: 2,
+        pointRadius: 5,
+        pointBackgroundColor: '#1B9AAA',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        fill: true,
+        tension: 0.25,
+        spanGaps: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          ticks: { callback: function(v){ return secondsToStr(v); } },
+          grid: { color: '#e1e0d9' }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+});
+
+document.getElementById('resetBtn').addEventListener('click', function(){
+  document.getElementById('swimmerName').value = '';
+  document.getElementById('recNac').value = '';
+  document.getElementById('recMun').value = '';
+  document.getElementById('recPer').value = '';
+  document.querySelectorAll('.timeInput').forEach(function(i){ i.value=''; });
+  document.getElementById('resultsWrap').style.display = 'none';
+  clearError();
+  try{ localStorage.removeItem('natacionDraft'); }catch(e){}
+});
+
+var persistIds = ['swimmerName','recNac','recMun','recPer'];
+function getAllPersistInputs(){
+  var inputs = persistIds.map(function(id){ return document.getElementById(id); });
+  document.querySelectorAll('.timeInput').forEach(function(i){ inputs.push(i); });
+  return inputs;
 }
+function saveDraft(){
+  var data = {};
+  getAllPersistInputs().forEach(function(input){
+    var key = input.id || input.getAttribute('data-id');
+    data[key] = input.value;
+  });
+  try{ localStorage.setItem('natacionDraft', JSON.stringify(data)); }catch(e){}
+}
+function loadDraft(){
+  var raw;
+  try{ raw = localStorage.getItem('natacionDraft'); }catch(e){ raw = null; }
+  if(!raw) return;
+  var data;
+  try{ data = JSON.parse(raw); }catch(e){ return; }
+  getAllPersistInputs().forEach(function(input){
+    var key = input.id || input.getAttribute('data-id');
+    if(data[key]!==undefined) input.value = data[key];
+  });
+}
+getAllPersistInputs().forEach(function(input){
+  input.addEventListener('input', saveDraft);
+});
+loadDraft();
+
+})();
 </script>
-</body>
-</html>
 
+</body>
+</html>  
